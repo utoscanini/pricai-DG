@@ -24,6 +24,30 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Control de acceso con contraseña
+def check_password():
+    if 'autenticado' not in st.session_state:
+        st.session_state.autenticado = False
+    if st.session_state.autenticado:
+        return True
+    st.markdown('<br>', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image('logo.png', width=220)
+        st.markdown('<br>', unsafe_allow_html=True)
+        st.subheader('Acceso restringido')
+        password = st.text_input('Contraseña:', type='password')
+        if st.button('Ingresar'):
+            if password == st.secrets["APP_PASSWORD"]:
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error('Contraseña incorrecta.')
+    return False
+
+if not check_password():
+    st.stop()
+
 @st.cache_data
 def cargar_datos():
     df = pd.read_csv('Listado-tab.txt', sep='\t')
@@ -98,12 +122,10 @@ def enviar_mail(nombre, email, telefono, mensaje, adjunto, resultado_texto):
     gmail_user = st.secrets["GMAIL_USER"]
     gmail_password = st.secrets["GMAIL_PASSWORD"]
     destinatario = "info@pricai.com.ar"
-
     msg = MIMEMultipart()
     msg['From'] = gmail_user
     msg['To'] = destinatario
     msg['Subject'] = f'Solicitud de información / presupuesto - {nombre}'
-
     cuerpo = f"""
 Solicitud de información / presupuesto
 
@@ -115,14 +137,12 @@ Mensaje: {mensaje}
 {resultado_texto}
 """
     msg.attach(MIMEText(cuerpo, 'plain'))
-
     if adjunto is not None:
         part = MIMEBase('application', 'octet-stream')
         part.set_payload(adjunto.read())
         encoders.encode_base64(part)
         part.add_header('Content-Disposition', f'attachment; filename="{adjunto.name}"')
         msg.attach(part)
-
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
         server.login(gmail_user, gmail_password)
         server.sendmail(gmail_user, destinatario, msg.as_string())
@@ -145,7 +165,6 @@ tipo_busqueda = st.radio(
 st.markdown('---')
 
 resultado_para_mail = ""
-resultado = None
 
 if tipo_busqueda == 'Por Especialidad / Patología':
     especialidades = sorted(df['Especialidad'].unique())
@@ -210,7 +229,6 @@ with st.form('formulario_mail'):
     mensaje = st.text_area('Mensaje (opcional)')
     adjunto = st.file_uploader('Orden médica * (PDF o imagen)', type=['pdf', 'png', 'jpg', 'jpeg'])
     enviar = st.form_submit_button('📨 Enviar solicitud')
-
     if enviar:
         if not nombre or not email or not telefono:
             st.error('Por favor completá los campos obligatorios: nombre, email y teléfono.')
